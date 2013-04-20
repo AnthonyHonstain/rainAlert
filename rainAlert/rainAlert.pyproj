@@ -24,5 +24,11 @@
   <ItemGroup>
     <Compile Include="rainAlert.py" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="data\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="data\test.mp4" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
 </Project>
