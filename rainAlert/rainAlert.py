@@ -17,14 +17,15 @@ def getThreshold(f,cutOffThreshVal):
     return cv2.threshold(f,cutOffThreshVal,255,0)
 
 #find the contours in the image
-def findCountoursBW(f):
+def findCountoursBW(f,f2,sizeL, sizeM):
     conts,hier = cv2.findContours(f,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
     #check size of countours ignore ones that are too small or large
     for cnt in conts:   
         x,y,w,h = cv2.boundingRect(cnt)
-        if float(w)*float(h) < 60:
-            cv2.rectangle(f,(x,y),(x+w,y+h),(0,255,0),2)
-    return f
+        area = float(w)*float(h)
+        if area < sizeL and area > sizeM:
+            cv2.rectangle(f2,(x,y),(x+w,y+h),(0,255,0),2)
+    return f,f2
 
 #this really slows things down!
 def makeBW(f):
@@ -39,6 +40,8 @@ def mainLoop():
     weightBG2 = 0.6
     blurKp = 1
     cutOffThresh=70;
+    sizeL = 4000
+    sizeM = 1500
 
     _,f = vid.read()
 
@@ -69,7 +72,7 @@ def mainLoop():
         #make BW first
         res3 = makeBW(res3)
         #find countours
-        res3 = findCountoursBW(res3)
+        res3,res1 = findCountoursBW(res3,res1,sizeL,sizeM)
 
         cv2.imshow('bg1',res1)
         cv2.imshow('bg2',res3)
