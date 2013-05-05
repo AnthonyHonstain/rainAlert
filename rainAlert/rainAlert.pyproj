@@ -22,7 +22,10 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="bb.py" />
+    <Compile Include="median.py" />
     <Compile Include="rainAlert.py" />
+    <Compile Include="recognizer.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="data\" />

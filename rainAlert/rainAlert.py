@@ -1,89 +1,113 @@
 import numpy as np
 import cv2
-import cv
+import cv2.cv as cv
+from Recognizer import Recognizer
 
 
-#get Video stream
-def addGausianBlur(f1,level):
-    return cv2.GaussianBlur(f1,(level,level),0)
+class UmbrellaTracker:
+    def __init__(self): 
+        self.init = False
+        self.weightBG1 = 0.01
+        self.weightBG2 = 0.2
+        self.blurKp = 3
+        self.cutOffThresh=35;
+        self.sizeL = 4000
+        self.sizeM = 1500
+        #kernal size for erode and dilate
+        self.kernalH = 3
+        self.kernalW = 3
+        self.rec = Recognizer()
+       
+    def onMouseClick(self,event, x, y, flags, param ):
+        if event == cv.CV_EVENT_LBUTTONDOWN:
+            print "nice job"
 
-#get diff 
-def subtractFrames(f1,f2):
-    dif = cv2.absdiff(f1,f2)
-    return dif
+    #get Video stream
+    def addGausianBlur(self,f1,level):
+        return cv2.GaussianBlur(f1,(level,level),1)
 
-#get image threshold to remove some noise
-def getThreshold(f,cutOffThreshVal):
-    return cv2.threshold(f,cutOffThreshVal,255,0)
+    #get diff 
+    def subtractFrames(self,f1,f2):
+        dif = cv2.absdiff(f1,f2)
+        return dif
 
-#find the contours in the image
-def findCountoursBW(f,f2,sizeL, sizeM):
-    conts,hier = cv2.findContours(f,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
-    #check size of countours ignore ones that are too small or large
-    for cnt in conts:   
-        x,y,w,h = cv2.boundingRect(cnt)
-        area = float(w)*float(h)
-        if area < sizeL and area > sizeM:
-            cv2.rectangle(f2,(x,y),(x+w,y+h),(0,255,0),2)
-    return f,f2
+    #get image threshold to remove some noise
+    def getThreshold(self,f,cutOffThreshVal):
+        return cv2.threshold(f,cutOffThreshVal,255,0)
 
-#this really slows things down!
-def makeBW(f):
-    bwImg = cv2.cvtColor(f,cv.CV_RGB2GRAY)
-    return bwImg
+    #find the contours in the image
+    def findCountoursBW(self,f,f2,sizeL, sizeM):
+        conts,hier = cv2.findContours(f,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
+        #check size of countours ignore ones that are too small or large
+        for cnt in conts:   
+            x,y,w,h = cv2.boundingRect(cnt)
+            area = float(w)*float(h)
+            if area < sizeL and area > sizeM:
+                cv2.rectangle(f2,(x,y),(x+w,y+h),(0,255,0),2)
+        return f,f2
+
+    #this really slows things down!
+    def makeBW(self,f):
+        bwImg = cv2.cvtColor(f,cv.CV_RGB2GRAY)
+        return bwImg
+
+
+    def track(self,f,vid):
+
+
+        #create numpy arrays from image frames
+        avg1 = np.float32(f)
+        avg2 = np.float32(f)
+        while 1:
+            #get frame from video
+            _,f = vid.read()
+
+            cv2.accumulateWeighted(f,avg1,self.weightBG1)
+            cv2.accumulateWeighted(f,avg2,self.weightBG2)
+
+            #normalize
+            res1 = cv2.convertScaleAbs(avg1)
+            res2 = cv2.convertScaleAbs(avg2)
+     
+            res1 = self.addGausianBlur(res1,self.blurKp)
+            res2 = self.addGausianBlur(res2,self.blurKp)
+        
+            #get diff
+            res3 = self.subtractFrames(res1,res2)
+
+            #lets threshold the image
+            _,res3 = self.getThreshold(res3,self.cutOffThresh)
+
+            #make BW first
+            res3 = self.makeBW(res3)
+            #find countours
+            res3,res1 = self.findCountoursBW(res3,res1,self.sizeL,self.sizeM)
+            kernel = np.ones((self.kernalH,self.kernalW),'uint8')
+            #res3 = cv2.dilate(res3,kernel)
+            res3 = cv2.dilate(res3,kernel,iterations=3)
+            res3 = cv2.erode(res3,kernel,iterations=4)
+
+            #self.rec.getFeatures(res3)
+            #res1 = self.rec.drawFeatures(res1)
+
+            cv2.imshow('bg1',res1)
+            cv2.imshow('bg2',res3)
+            if not self.init:
+                cv2.setMouseCallback('bg2',self.onMouseClick,None);
+                init = True
+
+            #break if esc is hit
+            k = cv2.waitKey(20) 
+            if k == 27:
+                break
 
 def mainLoop():
-
-    #if no params are set use default imagery 
-    vid = cv2.VideoCapture("./data/test.mp4")
-    weightBG1 = 0.01
-    weightBG2 = 0.6
-    blurKp = 1
-    cutOffThresh=70;
-    sizeL = 4000
-    sizeM = 1500
-
-    _,f = vid.read()
-
-    #create numpy arrays from image frames
-    avg1 = np.float32(f)
-    avg2 = np.float32(f)
-
-    while 1:
-        #get frame from video
+        vid = cv2.VideoCapture("./data/test.mp4")
         _,f = vid.read()
-
-        cv2.accumulateWeighted(f,avg1,weightBG1)
-        cv2.accumulateWeighted(f,avg2,weightBG2)
-
-        #normalize
-        res1 = cv2.convertScaleAbs(avg1)
-        res2 = cv2.convertScaleAbs(avg2)
- 
-        res1 = addGausianBlur(res1,blurKp)
-        res2 = addGausianBlur(res2,blurKp)
-    
-        #get diff
-        res3 = subtractFrames(res1,res2)
-
-        #lets threshold the image
-        _,res3 = getThreshold(res3,cutOffThresh)
-
-        #make BW first
-        res3 = makeBW(res3)
-        #find countours
-        res3,res1 = findCountoursBW(res3,res1,sizeL,sizeM)
-
-        cv2.imshow('bg1',res1)
-        cv2.imshow('bg2',res3)
-
-        #break if esc is hit
-        k = cv2.waitKey(20)
-        if k == 27:
-            break
-
+        tracker = UmbrellaTracker()
+        tracker.track(f,vid)
 
 if __name__ == '__main__':
-    print "starting application"
-    mainLoop()
-    
+  print "starting application"
+  mainLoop()
+        
