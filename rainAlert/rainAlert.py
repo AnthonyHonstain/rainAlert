@@ -7,20 +7,46 @@ from Recognizer import Recognizer
 class UmbrellaTracker:
     def __init__(self): 
         self.init = False
+        #seperate bg weight ratio's
         self.weightBG1 = 0.01
-        self.weightBG2 = 0.2
+        self.weightBG2 = 0.3
+        #gausion weight ratio
         self.blurKp = 3
+        #cutoff threshold for BW image
         self.cutOffThresh=35;
-        self.sizeL = 4000
+        #what size to limit our bounding boxes too
+        self.sizeL = 4500
         self.sizeM = 1500
         #kernal size for erode and dilate
         self.kernalH = 3
         self.kernalW = 3
+        #kernal size
         self.rec = Recognizer()
+        self.currFrame = None
+        self.contours = []
        
     def onMouseClick(self,event, x, y, flags, param ):
+        #select which roi to train for features
         if event == cv.CV_EVENT_LBUTTONDOWN:
-            print "nice job"
+            if len(self.contours) > 0:
+                for cont in self.contours:
+                     if self.isWithinBB(x,y,cont):
+                        #x,y,w,h = cv2.boundingRect(cont)
+                        print "Trainig for umbrella"
+                        self.rec.extractSurfFeatures(self.currFrame,cv2.boundingRect(cont))
+            else:
+                print "wait for contours to get initialized"
+
+    #check weather a point clicked on screen is within a bounding box defined by contours
+    def isWithinBB(self,x,y,cont):
+        xb,yb,wb,hb = cv2.boundingRect(cont)
+        xbC = xb + wb
+        ybC = yb + hb
+        if x > xb and x <xbC:
+            if y > yb and y < ybC:
+                return True
+        return False
+
 
     #get Video stream
     def addGausianBlur(self,f1,level):
@@ -36,15 +62,19 @@ class UmbrellaTracker:
         return cv2.threshold(f,cutOffThreshVal,255,0)
 
     #find the contours in the image
-    def findCountoursBW(self,f,f2,sizeL, sizeM):
+    def findCountoursBW(self,f):
         conts,hier = cv2.findContours(f,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
         #check size of countours ignore ones that are too small or large
+        return conts
+
+    #draw contors on image
+    def drawContours(self,image,conts,sizeL,sizeM):
         for cnt in conts:   
             x,y,w,h = cv2.boundingRect(cnt)
             area = float(w)*float(h)
             if area < sizeL and area > sizeM:
-                cv2.rectangle(f2,(x,y),(x+w,y+h),(0,255,0),2)
-        return f,f2
+                cv2.rectangle(image,(x,y),(x+w,y+h),(255,255,255),2)
+        return image
 
     #this really slows things down!
     def makeBW(self,f):
@@ -80,18 +110,27 @@ class UmbrellaTracker:
 
             #make BW first
             res3 = self.makeBW(res3)
-            #find countours
-            res3,res1 = self.findCountoursBW(res3,res1,self.sizeL,self.sizeM)
+
+            #Dilate and erode
             kernel = np.ones((self.kernalH,self.kernalW),'uint8')
-            #res3 = cv2.dilate(res3,kernel)
             res3 = cv2.dilate(res3,kernel,iterations=3)
             res3 = cv2.erode(res3,kernel,iterations=4)
+            
+            self.currFrame = res2
 
-            #self.rec.getFeatures(res3)
-            #res1 = self.rec.drawFeatures(res1)
+            cimage = np.copy(res3)
+            #find countours
+            self.contours  = self.findCountoursBW(cimage)
+
+            res2 = self.drawContours(res2,self.contours,self.sizeL,self.sizeM)
+            #res3 = cv2.dilate(res3,kernel)
+            
+
+            self.rec.getFeatures(res3)
+            res1 = self.rec.drawFeatures(res1)
 
             cv2.imshow('bg1',res1)
-            cv2.imshow('bg2',res3)
+            cv2.imshow('bg2',res2)
             if not self.init:
                 cv2.setMouseCallback('bg2',self.onMouseClick,None);
                 init = True
@@ -102,7 +141,7 @@ class UmbrellaTracker:
                 break
 
 def mainLoop():
-        vid = cv2.VideoCapture("./data/test.mp4")
+        vid = cv2.VideoCapture("./data/test2.mp4")
         _,f = vid.read()
         tracker = UmbrellaTracker()
         tracker.track(f,vid)

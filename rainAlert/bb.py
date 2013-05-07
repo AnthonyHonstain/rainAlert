@@ -11,7 +11,8 @@ def calculateBBCenter(bb):
     """
     center = (0.5*(bb[0] + bb[2]),0.5*(bb[1]+bb[3]))
     return center
-    
+ 
+       
 def getFilledBBPoints(bb, numM, numN, margin):
     """
     **SUMMARY**
