@@ -23,15 +23,22 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="bb.py" />
+    <Compile Include="common.py" />
+    <Compile Include="learningRec.py" />
     <Compile Include="median.py" />
+    <Compile Include="plane_tracker.py" />
     <Compile Include="rainAlert.py" />
     <Compile Include="recognizer.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="data\" />
+    <Folder Include="train\" />
+    <Folder Include="train\neg\" />
+    <Folder Include="train\pos\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="data\test.mp4" />
+    <Content Include="data\umb.xml" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
 </Project>
