@@ -3,7 +3,7 @@ import cv2
 import cv2.cv as cv
 from recognizer import Recognizer
 from learningRec import SVM
-
+from twitterAlert import TwitterAlert
 
 
 class UmbrellaTracker:
@@ -17,10 +17,11 @@ class UmbrellaTracker:
         self.tracking = False
         self.useMog = True
         self.showBGDiff = False
+        self.lastTimeWarningSent = 1
+        self.alertInterval = 10000
         #seperate bg weight ratio's
         self.weightBG1 = 0.2
         self.weightBG2 = 0.6
-        self.tracked = []
 
         self.trained = {}
         self.counter = 0
@@ -31,8 +32,8 @@ class UmbrellaTracker:
         #cutoff threshold for BW image
         self.cutOffThresh=30;
         #what size to limit our bounding boxes too
-        self.sizeL = 4500
-        self.sizeM = 1000
+        self.sizeL = 4000
+        self.sizeM = 1500
         #kernal size for erode and dilate
         self.kernalH = 3
         self.kernalW = 3
@@ -46,14 +47,14 @@ class UmbrellaTracker:
         #tracking will start after this many frames
         self.start = 10
         #track interval don't do tracking every frame
-        self.track_interval = 5
+        self.track_interval = 20
 
         #Use MOG BG extractor
         self.bgs = cv2.BackgroundSubtractorMOG(24*60, 1
                                                , 0.8, 0.5)
         self.svmTracker = SVM()
         self.svmReady = True
-
+        self.twtr = TwitterAlert()
 
     def onMouseClick(self,event, x, y, flags, param ):
         #select which roi to train for features
@@ -120,17 +121,31 @@ class UmbrellaTracker:
         #check size of countours ignore ones that are too small or large
         return conts
 
-    #draw contors on image
     def drawContours(self,image,conts,sizeL,sizeM,color):
+        #draw contors on image
         for cnt in conts:   
+            x,y,w,h = cv2.boundingRect(cnt)
+            cv2.rectangle(image,(x,y),(x+w,y+h), color,2)
+        return image
+
+    def counterSizeFilter(self,contours,sizeL,sizeM):
+        #filter out contours that fit a certain size
+        filtered = []
+        for cnt in contours:   
             x,y,w,h = cv2.boundingRect(cnt)
             area = float(w)*float(h)
             if area < sizeL and area > sizeM:
-                cv2.rectangle(image,(x,y),(x+w,y+h), color,2)
+                filtered.append(cnt)
+        return filtered
+
+    def drawContour(self,image,cont,color):
+        #TODO create a version that which works for single contours
+        x,y,w,h = cv2.boundingRect(cont)
+        cv2.rectangle(image,(x,y),(x+w,y+h), color,2)
         return image
-       
-    #draw contors on image
+
     def drawContours2(self,image,conts,sizeL,sizeM,color):
+        #draw contors on image given array od contours in contour
         for cnt in conts:   
             x,y,w,h = cnt[0],cnt[1],cnt[2],cnt[3]
             #area = float(w)*float(h)
@@ -223,6 +238,7 @@ class UmbrellaTracker:
                 #find countours
                 if self.counter > self.start:
                     self.contours  = self.findCountoursBW(cimage)
+                    self.contours = self.counterSizeFilter(self.contours,self.sizeL,self.sizeM)
 
                 #make it color again
                 #lets do some interesting stuff
@@ -239,11 +255,17 @@ class UmbrellaTracker:
 
 
                 if len(objs) > 0:
-                    self.tracked = objs
+                    if  self.lastTimeWarningSent == 1 or self.counter - self.lastTimeWarningSent >  self.alertInterval:
+                        print "Umbrella Detected!!!! run for cover!!!!"
+                        self.twtr.sendAlert()
+                        self.lastTimeWarningSent = self.counter
+                    else:
+
+                        print "Just sent an alert so won't send one again but just FYI there is an umbrella"
 
                 res2 = cv2.cvtColor(res2,cv2.COLOR_GRAY2BGR)
-                if len(self.tracked) > 0:
-                    res2 = self.drawContours2(res2,umb,self.sizeL,self.sizeM,(255,0,0))
+                if len(objs) > 0:
+                    res2 = self.drawContour(res2,umb,(255,0,0))
 
                 res2 = self.drawContours(res2,self.contours,self.sizeL,self.sizeM,(255,255,0))
                 #res3 = cv2.dilate(res3,kernel)

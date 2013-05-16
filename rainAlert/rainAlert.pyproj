@@ -25,10 +25,10 @@
     <Compile Include="bb.py" />
     <Compile Include="common.py" />
     <Compile Include="learningRec.py" />
-    <Compile Include="median.py" />
     <Compile Include="plane_tracker.py" />
     <Compile Include="rainAlert.py" />
     <Compile Include="recognizer.py" />
+    <Compile Include="twitterAlert.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="data\" />
