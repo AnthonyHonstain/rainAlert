@@ -1,0 +1,6 @@
+./train/neg/117.png 
+./train/neg/116.png 
+./train/neg/113.png 
+./train/neg/112.png 
+./train/neg/115.png 
+./train/neg/114.png 
