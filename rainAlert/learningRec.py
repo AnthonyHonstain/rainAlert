@@ -4,7 +4,7 @@ import cv2
 
 class learningRec(object):
     """SVM based recognizer"""
-    def main():
+    def main(self):
         samples = np.array(np.random.random((4,2)), dtype = np.float32)
         y_train = np.array([1.,0.,0.,1.], dtype = np.float32)
 

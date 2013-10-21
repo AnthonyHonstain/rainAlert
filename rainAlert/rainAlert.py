@@ -3,7 +3,9 @@ import cv2
 import cv2.cv as cv
 from recognizer import Recognizer
 from learningRec import SVM
-from twitterAlert import TwitterAlert
+
+# Anthony - disabling twitter for the time being.
+#from twitterAlert import TwitterAlert
 
 
 class UmbrellaTracker:
@@ -54,14 +56,16 @@ class UmbrellaTracker:
                                                , 0.8, 0.5)
         self.svmTracker = SVM()
         self.svmReady = True
-        self.twtr = TwitterAlert()
+        
+        # Disabling twitter for the time being - not sure how its configured.
+        #self.twtr = TwitterAlert()
 
     def onMouseClick(self,event, x, y, flags, param ):
         #select which roi to train for features
         if event == cv.CV_EVENT_LBUTTONDOWN:
             if len(self.contours) > 0:
                 for cont in self.contours:
-                     if self.isWithinBB(x,y,cont):
+                    if self.isWithinBB(x,y,cont):
                         #x,y,w,h = cv2.boundingRect(cont)
                         box = cv2.boundingRect(cont)
                         if self.train:
@@ -154,13 +158,23 @@ class UmbrellaTracker:
         return image
 
     def drawBox(self,image,x,y,size,color):
-       cv2.rectangle(image,(x,y),(x+size,y+size),color)
-       return image
+        cv2.rectangle(image,(x,y),(x+size,y+size),color)
+        return image
+    
+    # TODO - does this comment go with cv2.rectangle or vc2.cvtColor ?    
     #this really slows things down!
+
     def makeBW(self,f):
+        """
+        Overview of cvtColor -  Converts an image from one color space to another.
+
+            C++: void cvtColor(InputArray src, OutputArray dst, int code, int dstCn=0 )
+            Python: cv2.cvtColor(src, code[, dst[, dstCn]]) -> dst
+        """    
+        # http://docs.opencv.org/modules/imgproc/doc/miscellaneous_transformations.html#cvtcolor
         bwImg = cv2.cvtColor(f,cv.CV_RGB2GRAY)
         return bwImg
-
+    
     def createTrainigOutput(self):
         count = 1
         fpP = open("info.dat","w")
@@ -194,11 +208,11 @@ class UmbrellaTracker:
 
     def bgSmooothing2(self,frame):
         #OpenCV BG removal using MOG
-         #frameBW = self.makeBW(frame)
-         frame = self.addGausianBlur(frame,self.blurKp)
-         frame = cv2.equalizeHist(frame)       
-         fgMask = self.bgs.apply(frame)
-         return fgMask
+        #frameBW = self.makeBW(frame)
+        frame = self.addGausianBlur(frame,self.blurKp)
+        frame = cv2.equalizeHist(frame)       
+        fgMask = self.bgs.apply(frame)
+        return fgMask
 
     def track(self,f,vid):
 
@@ -211,6 +225,12 @@ class UmbrellaTracker:
             if not self.pause:
                 #get frame from video
                 _,f = vid.read()
+                
+                # Check to see if we have a valid frame so we
+                # don't get a strange error from opencv. 
+                # http://stackoverflow.com/questions/16703345/how-can-i-use-opencv-python-to-read-a-video-file-without-looping-mac-os
+                if (type(f) == type(None)):
+                    break
 
                 f = self.makeBW(f)
                 res2 = f.copy()
@@ -341,6 +361,6 @@ def mainLoop():
         tracker.track(f,vid)
 
 if __name__ == '__main__':
-  print "starting application"
-  mainLoop()
+    print "starting application"
+    mainLoop()
         

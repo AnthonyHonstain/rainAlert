@@ -20,32 +20,37 @@ class Recognizer(object):
     """recognizer class used to identidy people with umbrellas"""
 
     def __init__(self,maxCorners = 10,qLevel = 0.02, minDist = 50, surfHthreshold = 300):
-       self.maxCorners = maxCorners
-       self.qLevel = qLevel
-       self.minDist = minDist
-       self.features = None
-       self.toTrack = []
+        self.maxCorners = maxCorners
+        self.qLevel = qLevel
+        self.minDist = minDist
+        self.features = None
+        self.toTrack = []
 
-       #SURF Features
-       self.surf = None
-       self.surfDescrp = None
-       self.kp = None
-       self.descriptors = None
-       self.KN = cv2.KNearest()
-       
-       #ORB Features
-       self.orbF = cv2.ORB( nfeatures = 1000 )
+        #SURF Features
+        self.surf = None
+        self.surfDescrp = None
+        self.kp = None
+        self.descriptors = None
+        self.KN = cv2.KNearest()
+        
+        #ORB Features
+        # Anthony - doesn't seem like ORB is in cv2 ? http://stackoverflow.com/questions/11010644/orb-in-python-binding-of-opencv-2-4-0
+        # another reference - http://stackoverflow.com/questions/13658185/setting-orb-parameters-in-opencv-with-pythone
+        # https://opencv-python-tutroals.readthedocs.org/en/latest/py_tutorials/py_feature2d/py_matcher/py_matcher.html
+        #self.orbF = cv2.ORB( nfeatures = 1000 )
+        self.orbF = cv2.FeatureDetector_create("ORB")
+        self.orbF.setInt("nFeatures", 1000)
 
-       #Cascade classifier
-       self.cascade = cv2.CascadeClassifier("./data/umb.xml")
+        #Cascade classifier
+        self.cascade = cv2.CascadeClassifier("./data/umb.xml")
 
-       #FLANN PARAMS
-       self.r_threshold = 0.6
-       FLANN_INDEX_KDTREE = 1
-       self.FLANN_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 4)
-       self.FlannMatcher = cv2.FlannBasedMatcher(self.FLANN_params,{})
-       self.FlannMatcher2 = None
-       
+        #FLANN PARAMS
+        self.r_threshold = 0.6
+        FLANN_INDEX_KDTREE = 1
+        self.FLANN_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 4)
+        self.FlannMatcher = cv2.FlannBasedMatcher(self.FLANN_params,{})
+        self.FlannMatcher2 = None
+        
 
     def reset(self):
         #wipeout everything #newbeginnig
@@ -85,66 +90,63 @@ class Recognizer(object):
         return objects
 
 
-    def createTargetFeatures(self,image,rect):
-       #extract features using suf and train kmeans matcher, run this on every frame
-       #kps = self.surf.detect(image)
-       #self.FLANN = cv2.flann_Index(kps, self.FLANN_params)
-       kp,des = self.findFeatures(image,USE_SIFT_FT)
-       points, descs = [], []
-       descs = np.uint8(descs)
-       self.FlannMatcher.add([descs])
-       self.FlannMatcher2 = cv2.flann_Index(des,self.FLANN_params)
-       track = PlanarTarget(image = image, rect=rect, keypoints = kp, descrs=descs, data=None)
-       self.toTrack.append(track)
+    def createTargetFeatures(self, image, rect):
+        # extract features using suf and train kmeans matcher, run this on every frame
+        # kps = self.surf.detect(image)
+        # self.FLANN = cv2.flann_Index(kps, self.FLANN_params)
+        kp, des = self.findFeatures(image, USE_SIFT_FT)
+        points, descs = [], []
+        descs = np.uint8(descs)
+        self.FlannMatcher.add([descs])
+        self.FlannMatcher2 = cv2.flann_Index(des, self.FLANN_params)
+        track = PlanarTarget(image=image, rect=rect, keypoints=kp, descrs=descs, data=None)
+        self.toTrack.append(track)
              
-    def findFeatures(self,image,type):
-       kp = []
-       des = []
-       if type == USE_ORB_FT:
-           kp,des = self.orbF.detectAndCompute(image,None)
-       else:
-           self.surf = cv2.FeatureDetector_create("SURF")
-           self.surfDescrp = cv2.DescriptorExtractor_create("SURF")
-           kp = self.surf.detect(image)
-           kp, des = self.surfDescrp.compute(image,kp)
+    def findFeatures(self, image, type):
+        kp = []
+        des = []
+        if type == USE_ORB_FT:
+            kp, des = self.orbF.detectAndCompute(image, None)
+        else:
+            self.surf = cv2.FeatureDetector_create("SURF")
+            self.surfDescrp = cv2.DescriptorExtractor_create("SURF")
+            kp = self.surf.detect(image)
+            kp, des = self.surfDescrp.compute(image, kp)
 
-       return kp,des
+        return kp, des
 
-    def extractMatchSurfFeaturesBG(self,image):
-       #extract features using suf and train kmeans matcher, you need to run BG matching prior, run this once on image which we wish to match
-       kps,descs = self.surf.detect(image,None)
-       #enumerate on descriptors
-       for h,des in enumerate(descs):
-           #not sure what's going on here proir to running kmeanse similar chack using FLANN
-           des = np.array(des,np.float32).reshape((1,128))
-           retval, results, neigh_resp, dists = knn.find_nearest(des,1)
-           res,dist =  int(results[0][0]),dists[0][0]
-           x,y = kp[res].pt
-           center = (int(x),int(y))
-           cv2.circle(img,center,2,color,-1)
-       return image
+    def extractMatchSurfFeaturesBG(self, image):
+        # extract features using suf and train kmeans matcher, you need to run BG matching prior, run this once on image which we wish to match
+        kps, descs = self.surf.detect(image, None)
+        # enumerate on descriptors
+        for h, des in enumerate(descs):
+            # not sure what's going on here proir to running kmeanse similar chack using FLANN
+            des = np.array(des, np.float32).reshape((1, 128))
+            retval, results, neigh_resp, dists = knn.find_nearest(des, 1)
+            res, dist = int(results[0][0]), dists[0][0]
+            x, y = kp[res].pt
+            center = (int(x), int(y))
+            cv2.circle(img, center, 2, color, -1)
+        return image
 
-    def getFeatures(self,image,type):
-       self.features = cv2.goodFeaturesToTrack(image,self.maxCorners,self.qLevel,self.minDist)
-       self.features = self.features.reshape((-1,2))
+    def getFeatures(self, image, type):
+        self.features = cv2.goodFeaturesToTrack(image, self.maxCorners, self.qLevel, self.minDist)
+        self.features = self.features.reshape((-1, 2))
        
-    def findUmbrellas(self,roi):
-        circles = cv2.HoughCircles(roi,cv.CV_HOUGH_GRADIENT,dp=1,minDist =1,)
+    def findUmbrellas(self, roi):
+        circles = cv2.HoughCircles(roi, cv.CV_HOUGH_GRADIENT, dp=1, minDist=1,)
         if circles:
             for circle in circles:
                 print "foundCircle"
 
-    def drawFeatures(self,image):
-       #draw features for extracted using gftt
-       if len(self.features) > 0:
-           for x, y in self.features:
+    def drawFeatures(self, image):
+        # draw features for extracted using gftt
+        if len(self.features) > 0:
+            for x, y in self.features:
                 cv2.circle(image, (x, y), 10, (0, 0, 255))
-       else:
+        else:
             print "run get features first"
             return image
-       return image
+        return image
 
-        #do something here match on roi of image features
-        
-
-
+        # do something here match on roi of image features
