@@ -214,32 +214,35 @@ class UmbrellaTracker:
         fgMask = self.bgs.apply(frame)
         return fgMask
 
-    def track(self,f,vid):
-
-        f = self.makeBW(f)
+    def track(self, frame_raw, video_capture):
+        """
+        Primary function for rain detection - main loop to read the video input, 
+        extract a frame, and process it.
+        """
+        frame_black_white = self.makeBW(frame_raw)
         #create numpy arrays from image frames
-        avg1 = np.float32(f)
-        avg2 = np.float32(f)
+        avg1 = np.float32(frame_black_white)
+        avg2 = np.float32(frame_black_white)
         objs = []
         while 1:
             if not self.pause:
                 #get frame from video
-                _,f = vid.read()
+                _, frame_raw = video_capture.read()
                 
                 # Check to see if we have a valid frame so we
                 # don't get a strange error from opencv. 
                 # http://stackoverflow.com/questions/16703345/how-can-i-use-opencv-python-to-read-a-video-file-without-looping-mac-os
-                if (type(f) == type(None)):
+                if (type(frame_raw) == type(None)):
                     break
 
-                f = self.makeBW(f)
-                res2 = f.copy()
+                frame_black_white = self.makeBW(frame_raw)
+                res2 = frame_black_white.copy()
                 #make BW first
 
                 if self.useMog:
                     mask = self.bgSmooothing2(res2)
                 else:
-                    res1,res2 = self.bgSmoothing(f,avg1,avg2)
+                    res1,res2 = self.bgSmoothing(frame_black_white,avg1,avg2)
                     #get diff
                     mask = self.subtractFrames(res1,res2)
                     #lets threshold the image
@@ -277,10 +280,9 @@ class UmbrellaTracker:
                 if len(objs) > 0:
                     if  self.lastTimeWarningSent == 1 or self.counter - self.lastTimeWarningSent >  self.alertInterval:
                         print "Umbrella Detected!!!! run for cover!!!!"
-                        self.twtr.sendAlert()
+                        #self.twtr.sendAlert()
                         self.lastTimeWarningSent = self.counter
                     else:
-
                         print "Just sent an alert so won't send one again but just FYI there is an umbrella"
 
                 res2 = cv2.cvtColor(res2,cv2.COLOR_GRAY2BGR)
@@ -346,8 +348,8 @@ class UmbrellaTracker:
                 break
 
 def mainLoop():
-        vid = cv2.VideoCapture("./data/test3.mp4")
-        _,f = vid.read()
+        video_capture = cv2.VideoCapture("./data/test3.mp4")
+        _,frame = video_capture.read()
         print "Press -t  to begin training , select contours"
         print "Press -d  when done training to output cascade files"
         print "Press -g  to begin tracking based on built cascade tracker"
@@ -358,7 +360,7 @@ def mainLoop():
         print "Press -(minus) to decrease erosion coefficient"
 
         tracker = UmbrellaTracker()
-        tracker.track(f,vid)
+        tracker.track(frame,video_capture)
 
 if __name__ == '__main__':
     print "starting application"
